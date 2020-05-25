@@ -1,7 +1,7 @@
 # Variables Configuration
 
 variable "cluster-name" {
-  default     = "qohashing-eks-cluster"
+  default     = "qohash-eks-cluster"
   type        = string
   description = "The name of your EKS Cluster"
 }
