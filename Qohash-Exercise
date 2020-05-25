@@ -1,0 +1,79 @@
+Kubernetes cluster deployed with terraform using terraform templates at >> 
+https://github.com/AyoSal/terraform-aws-eks.git
+
+Choice of Application >>
+1. I used an nginx image for the exercise
+2. Main infrastructure built with terraform templates
+3. use of kubectl commands to do the folowing -
+       - Create a deployment with image from item 1 above and specified replicas and resources limits 
+         file named - qohash-webapp.yml
+       - Created a service to make the application accessible externally
+         file named - qohash-service.yml
+
+Considerations-
+
+For redundancy I made use of 2 Availability zones - us-east-1a, us-east-1b
+For scale I started out with 4 replicas for the pods
+variables defined in variables.tf file
+modules used in modules folder
+
+  
+Disaster Recovery >>
+For DR, I consider data such as data stored on any volumes used by the pods (in this case ebs volumes)
+Take regular snapshots with AWS backups to a defined S3 bucket (this should be in place). 
+ the backups should be replicated to another DR s3 bucket( with Cross region replication enabled )
+ for the DR scenario. Also there should be similar terraform templates for the infrastructure with 
+ the DR region defined such that in the event of a disaster in the main region used eg in us-east. 
+ The disaster region can be eu-west and thus this should be defined in the DR templates
+  and the DR S3 bucket should be stored in eu-west as well. I recommend running a DR dry-run
+   every quarter to verify readiness in the event of an actual disaster.
+ The domain name of the web-service should also be registered in both regions but only active 
+ in the main region and on standby in the DR region
+
+
+Monitoring/alerting>>
+Metrics server can be impolemented to monitor certain metrics such as cpu and 
+memory usage on the pods to identify when these are beyond a certain threshold. 
+This works in tandem with my definition of resource limits in the deployment 
+for cpu and memory as follows-
+request limits of Memory at (64Mi) and cpu at (250m)
+resource limits of Memory at ( 128Mi) and Cpu at (500m)
+
+Also Cloudwatch logs in AWS can be used to view logs of the infrastructure
+
+
+Encryption>>
+Creation of Ingress to make the access to the cluster more secure
+Addition of SSL certificate to listeners on external facing loadbalancer
+creation of network policy to limit traffic only to the port required 
+for external traffic to the cluster
+
+Scaling>>
+Scale the application at following levels -
+
+Node Level - scale at node level manually by updating the terraform template for nodegroups to desired size in future either-
+Automatically by defining scaling policy in the ASG for the nodegroup in the console in AWS to be based on cpu utilization 
+
+Pod Level - defining horizontal pod autscaler with kubectl commands to set maximum desired capacity
+eg with command - kubectl autoscale deploy webapp --min=10 --max=20 --cpu-percent=85 
+
+where min - minimum number of pods, max - maximum number of pods and cpu as defined criteria, 
+when average cpu of pods get to 85% utilization, increase capacity
+
+
+Permisions>>
+Manage permissions for organization in IAM in AWS by creating groups for each team in IAM 
+ developer group for developer team
+ ops group for ops team 
+ design group for design team
+
+Assign respective access policy for specific services which those teams work with in AWS for example.
+s3 access role ( read or write to specific buckets - depending on if the team will only read or write to the buckets in s3)
+ec2 access  (for ec2 server access)
+rds access roel (for database access)
+
+For access to the kubernetes cluster, I would recommend using a central or 
+build server such as a Jenkins server from which deployments to the cluster will be performed
+security. Grant the ec2 server on which Jenkins is deployed iam access role to the EKS cluster 
+and make the credentials for the jenkins instance ( pem key file ) available only to key persons 
+who would access/manage the cluster 
